@@ -1,103 +1,115 @@
-</html>
-<head>
-  <title>Centro de Asistencia Genesys</title>
-  <link rel="stylesheet" href="style.css">
-<script type="text/javascript" charset="utf-8">
-  //WEB MESSENGER
-  (function (g, e, n, es, ys) {
-    g['_genesysJs'] = e;
-    g[e] = g[e] || function () {
-      (g[e].q = g[e].q || []).push(arguments)
-    };
-    g[e].t = 1 * new Date();
-    g[e].c = es;
-    ys = document.createElement('script'); ys.async = 1; ys.src = n; ys.charset = 'utf-8'; document.head.appendChild(ys);
-  })(window, 'Genesys', 'https://apps.mypurecloud.com/genesys-bootstrap/genesys.min.js', {
-    environment: 'use1',
-    deploymentId: '2028475c-5187-4bb2-91a2-186d9dbf66c7'
-  });
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Centro de Asistencia Genesys</title>
+    <link rel="stylesheet" href="style.css" />
 
-  //Global Variables
-  var messengerstate = "closed";
-  var sound_outboundmessage = new Audio(https://ukpresales.co.uk/sounds/message_outbound.wav);
-  var sound_inboundmessage = new Audio(https://ukpresales.co.uk/sounds/message_inbound.wav);
-  var sound_notificationmessage = new Audio(https://ukpresales.co.uk/sounds/message_notification.wav);
-  console.log("Variables set");
-  
-  // Triggered when messenger closed/minimised
-  Genesys("subscribe", "Messenger.closed", function () {
-      messengerstate = "closed";
-      console.log("Messenger is closed");
-  });
-  // Triggered when messenger opened/maximised
-  Genesys("subscribe", "Messenger.opened", function () {
-      messengerstate = "open";
-      console.log("Messenger is opened");
-  });
-  // Triggered when a message is sent from the customer to the agent
-  Genesys("subscribe", "MessagingService.sendingMessage", function ({ data }) {
-      console.log(data);
-      sound_outboundmessage.play();
-  });
-  // Triggered when a message is sent from the customer to the agent
-  Genesys("subscribe", "MessagingService.messagesReceived", function (e) {
-      if (e.data) {
-          const respDataObject = e.data || {};
-          // Check if the message is coming from the agent to the customer
-          if (respDataObject.messages[0].direction == "Outbound") {
-              if (messengerstate == "open") {
-                  sound_inboundmessage.play();
-              }
-              if (messengerstate == "closed") {
-                  sound_notificationmessage.play();
-                  Genesys(
-                      "command",
-                      "Toaster.open",
-                      {
-                          title: "You have a new message!",
-                          body:
-                              "Message: " + respDataObject.messages[0].text + "",
-                          buttons: {
-                              type: "binary", // required when 'buttons' is present. Values: "unary" for one action button, "binary" for two action buttons
-                              primary: "Reply", // optional, default value is "Accept"
-                              secondary: "Close", // optional, default value is "Decline"
-                          },
-                      },
-                      function () {
-                          /*fulfilled callback*/
-                          Genesys(
-                              "command",
-                              "Launcher.show",
-                              {},
-                              function () {
-                                  /*fulfilled callback*/
-                              },
-                              function () {
-                                  /*rejected callback*/
-                              }
-                          );
-                          console.log("Toaster is opened");
-                      },
-                      function (error) {
-                          /*rejected callback*/
-                          console.log(
-                              "There was an error running the Toaster.open command:",
-                              error
-                          );
-                      }
-                  );
-              }
-          }
+    <script>
+      // Helper: browsers often block audio.play() without a user gesture.
+      // Wrap play() to avoid unhandled promise rejections.
+      function safePlay(audio) {
+        if (!audio) return;
+        const p = audio.play();
+        if (p && typeof p.catch === "function") {
+          p.catch(() => {/* ignore autoplay errors */});
+        }
       }
-  });
-  // If the customer accepts the toaster window (hitting the "reply" button)
-  Genesys("subscribe", "Toaster.accepted", function (e) {
-      console.log("Toaster was accepted", e);
-      Genesys("command", "Messenger.openConversation");
-  });  
-</script>
-</head>
-<body>
-<div id="genesys-support-center"></div>
-</body>
+    </script>
+
+    <script type="text/javascript" charset="utf-8">
+      // WEB MESSENGER Bootstrap
+      (function (g, e, n, es, ys) {
+        g["_genesysJs"] = e;
+        g[e] = g[e] || function () {
+          (g[e].q = g[e].q || []).push(arguments);
+        };
+        g[e].t = 1 * new Date();
+        g[e].c = es;
+        ys = document.createElement("script");
+        ys.async = 1;
+        ys.src = n;
+        ys.charset = "utf-8";
+        document.head.appendChild(ys);
+      })(
+        window,
+        "Genesys",
+        "https://apps.mypurecloud.com/genesys-bootstrap/genesys.min.js",
+        {
+          environment: "use1",
+          deploymentId: "2028475c-5187-4bb2-91a2-186d9dbf66c7",
+        }
+      );
+
+      // Global state & sounds
+      let messengerState = "closed";
+      const soundOutbound = new Audio("https://ukpresales.co.uk/sounds/message_outbound.wav");
+      const soundInbound = new Audio("https://ukpresales.co.uk/sounds/message_inbound.wav");
+      const soundNotify = new Audio("https://ukpresales.co.uk/sounds/message_notification.wav");
+      console.log("Audio and state initialized");
+
+      // Subscriptions
+      Genesys("subscribe", "Messenger.closed", function () {
+        messengerState = "closed";
+        console.log("Messenger is closed");
+      });
+
+      Genesys("subscribe", "Messenger.opened", function () {
+        messengerState = "open";
+        console.log("Messenger is opened");
+      });
+
+      // Customer -> Agent (sending)
+      Genesys("subscribe", "MessagingService.sendingMessage", function ({ data }) {
+        console.log("sendingMessage", data);
+        safePlay(soundOutbound);
+      });
+
+      // Agent -> Customer (received)
+      Genesys("subscribe", "MessagingService.messagesReceived", function (e) {
+        const respDataObject = (e && e.data) || {};
+        const msgs = respDataObject.messages || [];
+        if (!msgs.length) return;
+        const first = msgs[0];
+        if (first && first.direction === "Outbound") {
+          if (messengerState === "open") {
+            safePlay(soundInbound);
+          } else if (messengerState === "closed") {
+            safePlay(soundNotify);
+            Genesys(
+              "command",
+              "Toaster.open",
+              {
+                title: "¡Tienes un nuevo mensaje!",
+                body: "Mensaje: " + (first.text || ""),
+                buttons: {
+                  type: "binary",
+                  primary: "Responder",
+                  secondary: "Cerrar",
+                },
+              },
+              function () {
+                // fulfilled
+                Genesys("command", "Launcher.show", {});
+                console.log("Toaster opened");
+              },
+              function (error) {
+                // rejected
+                console.warn("Error running Toaster.open:", error);
+              }
+            );
+          }
+        }
+      });
+
+      Genesys("subscribe", "Toaster.accepted", function (e) {
+        console.log("Toaster accepted", e);
+        Genesys("command", "Messenger.openConversation");
+      });
+    </script>
+  </head>
+  <body>
+    <div id="genesys-support-center"></div>
+  </body>
 </html>
