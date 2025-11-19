@@ -15,6 +15,91 @@
     environment: 'use1',
     deploymentId: '2028475c-5187-4bb2-91a2-186d9dbf66c7'
   });
+
+  //Global Variables
+var messengerstate = "closed";
+var sound_outboundmessage = new Audio(
+    https://ukpresales.co.uk/sounds/message_outbound.wav
+);
+var sound_inboundmessage = new Audio(
+    https://ukpresales.co.uk/sounds/message_inbound.wav
+);
+var sound_notificationmessage = new Audio(
+    https://ukpresales.co.uk/sounds/message_notification.wav
+);
+console.log("Variables set");
+// Triggered when messenger closed/minimised
+Genesys("subscribe", "Messenger.closed", function () {
+    messengerstate = "closed";
+    console.log("Messenger is closed");
+});
+// Triggered when messenger opened/maximised
+Genesys("subscribe", "Messenger.opened", function () {
+    messengerstate = "open";
+    console.log("Messenger is opened");
+});
+// Triggered when a message is sent from the customer to the agent
+Genesys("subscribe", "MessagingService.sendingMessage", function ({ data }) {
+    console.log(data);
+    sound_outboundmessage.play();
+});
+// Triggered when a message is sent from the customer to the agent
+Genesys("subscribe", "MessagingService.messagesReceived", function (e) {
+    if (e.data) {
+        const respDataObject = e.data || {};
+        // Check if the message is coming from the agent to the customer
+        if (respDataObject.messages[0].direction == "Outbound") {
+            if (messengerstate == "open") {
+                sound_inboundmessage.play();
+            }
+            if (messengerstate == "closed") {
+                sound_notificationmessage.play();
+                Genesys(
+                    "command",
+                    "Toaster.open",
+                    {
+                        title: "You have a new message!",
+                        body:
+                            "Message: " + respDataObject.messages[0].text + "",
+                        buttons: {
+                            type: "binary", // required when 'buttons' is present. Values: "unary" for one action button, "binary" for two action buttons
+                            primary: "Reply", // optional, default value is "Accept"
+                            secondary: "Close", // optional, default value is "Decline"
+                        },
+                    },
+                    function () {
+                        /*fulfilled callback*/
+                        Genesys(
+                            "command",
+                            "Launcher.show",
+                            {},
+                            function () {
+                                /*fulfilled callback*/
+                            },
+                            function () {
+                                /*rejected callback*/
+                            }
+                        );
+                        console.log("Toaster is opened");
+                    },
+                    function (error) {
+                        /*rejected callback*/
+                        console.log(
+                            "There was an error running the Toaster.open command:",
+                            error
+                        );
+                    }
+                );
+            }
+        }
+    }
+});
+// If the customer accepts the toaster window (hitting the "reply" button)
+Genesys("subscribe", "Toaster.accepted", function (e) {
+    console.log("Toaster was accepted", e);
+    Genesys("command", "Messenger.openConversation");
+});
+  
 </script>
 </head>
 <body>
